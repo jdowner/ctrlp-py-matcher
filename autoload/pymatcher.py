@@ -14,29 +14,14 @@ logger.setLevel(logging.DEBUG)
 
 
 def fuzzy_match(items, expr, mode, limit, aregex=1):
-    specialChars = ['^','$','.','{','}','(',')','[',']','\\','/','+']
-
     lowAstr = expr.lower()
 
     regex = ''
     if aregex == 1:
         regex = expr
     else:
-        if len(lowAstr) == 1:
-            c = lowAstr
-            if c in specialChars:
-                c = '\\' + c
-            regex += c
-        else:
-            for c in lowAstr[:-1]:
-                if c in specialChars:
-                    c = '\\' + c
-                regex += c + '[^' + c + ']*'
-            else:
-                c = lowAstr[-1]
-                if c in specialChars:
-                    c = '\\' + c
-                regex += c
+        pattern = '(?=(' + '.*?'.join(re.escape(c) for c in lowAstr) + '))'
+        regex = re.compile(pattern, re.IGNORECASE)
 
     res = []
     prog = re.compile(regex)
@@ -78,6 +63,7 @@ def fuzzy_match(items, expr, mode, limit, aregex=1):
         res = [(path_score(line.rsplit('\t')[0]), line) for line in items]
 
     else:
+
         res = [(path_score(line), line) for line in items]
 
     rez = []
