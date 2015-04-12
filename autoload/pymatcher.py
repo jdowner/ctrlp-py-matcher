@@ -1,21 +1,26 @@
-import vim, re
 import heapq
+import logging
+import os
+import re
 
-def CtrlPPyMatch():
-    items = vim.eval('a:items')
-    astr = vim.eval('a:str')
-    lowAstr = astr.lower()
-    limit = int(vim.eval('a:limit'))
-    mmode = vim.eval('a:mmode')
-    aregex = int(vim.eval('a:regex'))
+try:
+    import vim
+except ImportError:
+    pass
 
-    rez = vim.eval('s:rez')
+logger = logging.getLogger('ctrlp-py-matcher')
+logger.addHandler(logging.FileHandler(os.path.expanduser('~/.ctrp-py-patcher.log')))
+logger.setLevel(logging.DEBUG)
 
+
+def fuzzy_match(items, expr, mode, limit, aregex=1):
     specialChars = ['^','$','.','{','}','(',')','[',']','\\','/','+']
+
+    lowAstr = expr.lower()
 
     regex = ''
     if aregex == 1:
-        regex = astr
+        regex = expr
     else:
         if len(lowAstr) == 1:
             c = lowAstr
@@ -63,22 +68,43 @@ def CtrlPPyMatch():
         return 0
 
 
-    if mmode == 'filename-only':
+    if mode == 'filename-only':
         res = [(filename_score(line), line) for line in items]
 
-    elif mmode == 'first-non-tab':
+    elif mode == 'first-non-tab':
         res = [(path_score(line.split('\t')[0]), line) for line in items]
 
-    elif mmode == 'until-last-tab':
+    elif mode == 'until-last-tab':
         res = [(path_score(line.rsplit('\t')[0]), line) for line in items]
 
     else:
         res = [(path_score(line), line) for line in items]
 
+    rez = []
     rez.extend([line for score, line in heapq.nlargest(limit, res)])
 
     # Use double quoted vim strings and escape \
     vimrez = ['"' + line.replace('\\', '\\\\').replace('"', '\\"') + '"' for line in rez]
+
+    return regex, vimrez
+
+
+def CtrlPPyMatch():
+    items = vim.eval('a:items')
+    astr = vim.eval('a:str')
+    lowAstr = astr.lower()
+    limit = int(vim.eval('a:limit'))
+    mmode = vim.eval('a:mmode')
+    aregex = int(vim.eval('a:regex'))
+
+    logger.debug('searching for {}'.format(astr))
+
+    rez = vim.eval('s:rez')
+
+    regex, vimrez = fuzzy_match(items, astr, mmode, limit, aregex)
+
+    for result in vimrez:
+        logger.debug("- {}".format(result))
 
     vim.command("let s:regex = '%s'" % regex)
     vim.command('let s:rez = [%s]' % ','.join(vimrez))
